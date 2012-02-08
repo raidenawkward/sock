@@ -44,14 +44,23 @@ int main(int argc, char** argv) {
 		goto err;
 	}
 
+
 	char buf[FTRANS_BUF_SIZE];
 	size_t read_size = 0;
 	while(read_size = load_data_from_file(fp, buf, FTRANS_BUF_SIZE)) {
 		if (read_size <= 0)
 			break;
+
+		if (send(sockfd, buf, read_size, 0) != read_size) {
+			printf("error detacted when uploading file\n");
+			goto err;
+		}
 	}
 
 done:
+	fclose(fp);
+	close(sockfd);
+
 	return 0;
 err:
 	if (fp)
