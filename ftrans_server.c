@@ -42,6 +42,39 @@ err:
 	return -1;
 }
 
+int receive_file_from_client_socket(int socketClient, const char* pathToSave) {
+	if (socketClient < 0 || !pathToSave)
+		return -1;
+	FILE* fp = fopen(pathToSave, "wb");
+	if (!fp)
+		return -1;
+
+	char buf[FTRANS_RECV_BUF_SIZE];
+	size_t sz_read = 0;
+	size_t sz_total_read = 0;
+	while(sz_read = recv(socketClient, buf, FTRANS_RECV_BUF_SIZE, 0)) {
+		if (!sz_read)
+			break;
+		sz_total_read += sz_read;
+
+		if (fwrite(buf, sz_read, 1, fp) != sz_read) {
+			goto err;
+		}
+	}
+
+	fclose(fp);
+	close(socketClient);
+
+	return sz_total_read;
+
+err:
+	if (fp)
+		fclose(fp);
+	if (socketClient > 0)
+		close(socketClient);
+	return -1;
+}
+
 int main(int argc, char** argv) {
 	if (argc < 2) {
 		mkdir(FTRANS_UPLOAD_PATH, FTRANS_UPLOAD_MOD);

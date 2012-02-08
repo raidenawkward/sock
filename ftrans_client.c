@@ -45,9 +45,9 @@ int main(int argc, char** argv) {
 	}
 
 
-	char buf[FTRANS_BUF_SIZE];
+	char buf[FTRANS_SEND_BUF_SIZE];
 	size_t read_size = 0;
-	while(read_size = load_data_from_file(fp, buf, FTRANS_BUF_SIZE)) {
+	while(read_size = load_data_from_file(fp, buf, FTRANS_SEND_BUF_SIZE)) {
 		if (read_size <= 0)
 			break;
 
