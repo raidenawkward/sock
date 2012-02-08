@@ -4,4 +4,9 @@
 #define FTRANS_PORT 7801
 #define FTRANS_BUF_SIZE 1024
 
+#define FTRANS_UPLOAD_PATH "./uploads"
+#define FTRANS_UPLOAD_MOD 770
+
+#define FTRANS_TCP_LISTENBACKLOG 5
+
 #endif //_FTRANS_H
