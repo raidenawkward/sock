@@ -257,9 +257,17 @@ int main(int argc, char** argv) {
 			continue;
 		} else if (pid == 0) {
 			size_t sz = receive_file_from_client_socket(sockfd_client, path);
-			printf("%d bytes data saved\n", sz);
+
 			close(sockfd_client);
 			sem_post(&sem_forks);
+
+			if (sz >= 0) {
+				printf("%d bytes data saved\n", sz);
+				exit(0);
+			} else {
+				printf("some error detacted while file ftrans\n");
+				exit(-1);
+			}
 		} else {
 
 		}
@@ -281,8 +289,16 @@ int main(int argc, char** argv) {
 		} else if (FORKS[new_pid_index] == 0) {
 			printf("saving file to %s\n",path);
 			size_t sz = receive_file_from_client_socket(sockfd_client, path);
-			printf("%d bytes data saved\n", sz);
+
 			close(sockfd_client);
+
+			if (sz >= 0) {
+				printf("%d bytes data saved\n", sz);
+				exit(0);
+			} else {
+				printf("some error detacted while file ftrans\n");
+				exit(-1);
+			}
 		} else {
 			++CURRENT_FORKS;
 		}
