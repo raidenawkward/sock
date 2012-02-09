@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -93,21 +95,31 @@ int get_received_file_name(int index, char* name) {
 int receive_file_from_client_socket(int socketClient, const char* pathToSave) {
 	if (socketClient < 0 || !pathToSave)
 		return -1;
-	FILE* fp = fopen(pathToSave, "wb");
-	if (!fp)
+
+	int fp = open(pathToSave, O_WRONLY | O_CREAT, FTRANS_UPLOAD_MOD);
+	if (fp < 0) {
+		perror("failed to open file");
 		return -1;
+	}
 
 	char buf[FTRANS_RECV_BUF_SIZE];
 	memset(buf, 0x00, sizeof(buf));
 	size_t sz_read = 0;
 	size_t sz_total_read = 0;
 
-	while(sz_read = read(socketClient, buf, sizeof(buf)) > 0) {
-		if (!sz_read)
+	while(1) {
+		sz_read = read(socketClient, buf, sizeof(buf));
+		if (!sz_read) {
 			break;
+		} else if (sz_read < 0) {
+			perror("error when reading data");
+			goto err;
+		}
+
 		sz_total_read += sz_read;
 
-		if (fwrite(buf, sz_read, 1, fp) != sz_read) {
+		size_t write_bytes = write(fp, buf, sz_read); 
+		if (write_bytes < sz_read || write_bytes < 0) {
 			printf("error when write data to file\n");
 			goto err;
 		}
@@ -115,20 +127,13 @@ int receive_file_from_client_socket(int socketClient, const char* pathToSave) {
 		memset(buf, 0x00, FTRANS_RECV_BUF_SIZE);
 	}
 
-	if (sz_read < 0) {
-		perror("error when reading");
-		goto err;
-	}
-
-	printf("data(%d): %s\n",sz_read,buf);
-
-	fclose(fp);
+	close(fp);
 
 	return sz_total_read;
 
 err:
-	if (fp)
-		fclose(fp);
+	if (fp > 0)
+		close(fp);
 	return -1;
 }
 
@@ -226,7 +231,7 @@ int main(int argc, char** argv) {
 		} else if (FORKS[new_pid_index] == 0) {
 			printf("saving file to %s\n",path);
 			size_t sz = receive_file_from_client_socket(sockfd_client, path);
-			printf("%d data saved\n", sz);
+			printf("%d bytes data saved\n", sz);
 			close(sockfd_client);
 		} else {
 			++CURRENT_FORKS;
