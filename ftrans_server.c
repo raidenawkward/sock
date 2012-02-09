@@ -44,15 +44,24 @@ int get_next_fork_index() {
 	return -1;
 }
 
+pthread_mutex_t listener_mutex;
+
 void* forks_listener(void* arg) {
 	while(1) {
 		if (CURRENT_FORKS) {
 			pid_t term_id = wait(NULL);
+
+			pthread_mutex_lock(&listener_mutex);
+
 			int index = get_fork_index(term_id);
-			if (index < 0)
+			if (index < 0) {
+				pthread_mutex_unlock(&listener_mutex);
 				continue;
+			}
 			FORKS[index] = -1;
 			--CURRENT_FORKS;
+
+			pthread_mutex_unlock(&listener_mutex);
 		}
 	}
 }
@@ -180,6 +189,11 @@ int main(int argc, char** argv) {
 		FORKS[i] = -1;
 	}
 
+	if (pthread_mutex_init(&listener_mutex, NULL) < 0) {
+		perror("failed to create listener mutex");
+		goto err;
+	}
+
 	pthread_t thread_listener;
 
 	if (pthread_create(&thread_listener, NULL, forks_listener, NULL) != 0) {
@@ -239,10 +253,12 @@ int main(int argc, char** argv) {
 	}
 
 done:
+	pthread_mutex_destroy(&listener_mutex);
 	close(sockfd);
 	return 0;
 err:
 	if (sockfd > 0)
 		close(sockfd);
+	pthread_mutex_destroy(&listener_mutex);
 	return -1;
 }
