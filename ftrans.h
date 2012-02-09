@@ -19,4 +19,13 @@
 	#define FTRANS_USE_MUTEX
 #endif
 
+// header trans before file content
+// which contents:
+// size: 32 bytes
+// name: 256 bytes
+// then be filled with '0'
+#define FTRANS_TRANS_HEADER_SIZE 512
+#define FTRANS_TRANS_HEADER_FILESIZE 32
+#define FTRANS_TRANS_HEADER_FILENAME 256
+
 #endif //_FTRANS_H

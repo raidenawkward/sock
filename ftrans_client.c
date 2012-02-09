@@ -11,7 +11,63 @@
 #include "ftrans.h"
 
 void show_help() {
-	printf("usage: client [file] [target ip]\n");
+	printf("usage: client file targetip [target name]\n");
+}
+
+const char* get_file_name_from_path(const char* path) {
+	if (!path)
+		return NULL;
+	char* ret = strrchr(path, '/'); 
+	if (!ret)
+		return path;
+}
+
+size_t get_file_size(const char* path) {
+	if (!path)
+		return -1;
+
+	struct stat s;
+	if (stat(path, &s) < 0)
+		return -1;
+
+	return s.st_size;
+}
+
+char* itoa(int i) {
+	int buf_size = sizeof(char) * sizeof(int);
+	char* ret = (char*)malloc(buf_size);
+	memset(ret,'\0', buf_size);
+
+	if (i < 0) {
+		ret[0] = '-';
+		i = i * (-1);
+	}
+
+	int mod_seed = 10;
+	int i_test = i;
+	int i_length = i < 0? 2 : 1;
+	while(1) {
+		i_test = i_test / mod_seed;
+		if (i_test > 0)
+			++i_length;
+		else
+			break;
+	}
+
+	i_test = i;
+	int index = i_length - 1;
+	while(1) {
+		int mod = i_test % mod_seed;
+		ret[index--] = 48 + mod;
+
+		i_test = i_test / mod_seed;
+
+		if (i_test <= 0 || index < 0)
+			break;
+	}
+
+	printf("size: %s\n", ret);
+	return ret;
 }
 
 int main(int argc, char** argv) {
@@ -42,6 +98,38 @@ int main(int argc, char** argv) {
 		goto err;
 	}
 
+	// header = size + name
+	char name_to_save[FTRANS_TRANS_HEADER_FILENAME];
+	memset(name_to_save, 0x00, sizeof(name_to_save));
+	if (argc > 3) {
+		strcpy(name_to_save, argv[3]);
+	} else {
+		strcpy(name_to_save, get_file_name_from_path(argv[1]));
+	}
+
+	// first send header
+	//
+	char header[FTRANS_TRANS_HEADER_SIZE];
+	memset(header, 0x00, sizeof(header));
+
+	char header_size[32];
+	size_t file_size = get_file_size(argv[1]);
+	if (file_size < 0) {
+		printf("invalid file size: %d\n", file_size);
+		goto err;
+	}
+	strncpy(header_size, itoa(file_size), sizeof(header_size));
+
+	memcpy(header, header_size, sizeof(header_size));
+	memcpy(header + sizeof(header_size), name_to_save, sizeof(name_to_save));
+
+	if(send(sockfd, header, sizeof(header), 0) <= 0) {
+		perror("error when reading header data");
+		goto err;
+	}
+
+	// second send file content
+	//
 	char buf[FTRANS_SEND_BUF_SIZE];
 	size_t read_size = 0;
 	size_t total_size = 0;
