@@ -30,7 +30,7 @@ OBJS_FTRANSSERVER := ftrans_server.o
 TGTS += $(TGT_FTRANSSERVER)
 
 default:
-	######################################################
+	#######################################################
 	#	socket testings
 	#	usable make argues:
 	#	(NULL)	-	show this msg

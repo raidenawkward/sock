@@ -12,4 +12,11 @@
 
 #define FTRANS_MAX_FORKS 10
 
+// use ether sem or mutex for sync
+#define FTRANS_USE_SEM
+
+#ifndef FTRANS_USE_SEM
+	#define FTRANS_USE_MUTEX
+#endif
+
 #endif //_FTRANS_H

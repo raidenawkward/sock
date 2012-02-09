@@ -13,11 +13,18 @@
 #include <net/if_arp.h>
 
 #include <pthread.h>
+#include <semaphore.h>
 
 #include "ftrans.h"
 
 #define ETH_NAME "eth0"
 
+
+#ifdef FTRANS_USE_SEM
+sem_t sem_forks;
+#endif
+
+#ifdef FTRANS_USE_MUTEX
 pid_t FORKS[FTRANS_MAX_FORKS];
 int CURRENT_FORKS = 0;
 
@@ -65,6 +72,7 @@ void* forks_listener(void* arg) {
 		}
 	}
 }
+#endif //FTRANS_USE_MUTEX
 
 int get_local_sin_addr(struct in_addr *sinaddr) {
 	int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -184,6 +192,14 @@ int main(int argc, char** argv) {
 		goto err;
 	}
 
+#ifdef FTRANS_USE_SEM
+	if (sem_init(&sem_forks, 1, FTRANS_MAX_FORKS) < 0) {
+		perror("failed to init sem for forks");
+		goto err;
+	}
+#endif
+
+#ifdef FTRANS_USE_MUTEX
 	int i;
 	for(i = 0; i < FTRANS_MAX_FORKS; ++i) {
 		FORKS[i] = -1;
@@ -200,6 +216,7 @@ int main(int argc, char** argv) {
 		perror("failed to create listener thread");
 		goto err;
 	}
+#endif
 
 	printf(" done\n");
 	printf("local ip: %s\n",inet_ntoa(addr_server.sin_addr));
@@ -230,6 +247,25 @@ int main(int argc, char** argv) {
 		strcat(path, "/");
 		strcat(path, name);
 
+#ifdef FTRANS_USE_SEM
+		sem_wait(&sem_forks);
+
+		int pid = fork();
+		if (pid < 0) {
+			perror("failed to fork");
+			sem_post(&sem_forks);
+			continue;
+		} else if (pid == 0) {
+			size_t sz = receive_file_from_client_socket(sockfd_client, path);
+			printf("%d bytes data saved\n", sz);
+			close(sockfd_client);
+			sem_post(&sem_forks);
+		} else {
+
+		}
+#endif
+
+#ifdef FTRANS_USE_MUTEX
 		int new_pid_index = get_next_fork_index();
 		if (new_pid_index < 0) {
 			// list is full
@@ -250,15 +286,30 @@ int main(int argc, char** argv) {
 		} else {
 			++CURRENT_FORKS;
 		}
-	}
+#endif
+	} //while(1)
 
 done:
-	pthread_mutex_destroy(&listener_mutex);
 	close(sockfd);
+#ifdef FTRANS_USE_MUTEX
+	pthread_mutex_destroy(&listener_mutex);
+#endif
+#ifdef FTRANS_USE_SEM
+	sem_destroy(&sem_forks);
+#endif
 	return 0;
+
 err:
 	if (sockfd > 0)
 		close(sockfd);
+
+#ifdef FTRANS_USE_MUTEX
 	pthread_mutex_destroy(&listener_mutex);
+#endif
+
+#ifdef FTRANS_USE_SEM
+	sem_destroy(&sem_forks);
+#endif
+
 	return -1;
 }
