@@ -281,7 +281,7 @@ int main(int argc, char** argv) {
 			continue;
 		}
 
-		printf("* quest received from %s\n",inet_ntoa(addr_client.sin_addr));
+		printf("\n* quest received from %s\n",inet_ntoa(addr_client.sin_addr));
 
 #ifdef FTRANS_USE_SEM
 		sem_wait(&sem_forks);
@@ -328,7 +328,7 @@ int main(int argc, char** argv) {
 			char path[1024];
 			memset(path,0x00, sizeof(path));
 			strcat(path, path_to_save);
-			strcat(path, "/");
+			strcat(path, FTRANS_PATH_SEPARATER);
 			strcat(path, name);
 
 			// second recv file
@@ -339,6 +339,13 @@ int main(int argc, char** argv) {
 
 			if (sz >= 0) {
 				printf("%d bytes data saved\n", sz);
+
+			size_t header_size = get_file_size_from_header(header);
+			if (sz != header_size) {
+				printf("some errors may happen when recving file\n");
+				goto fork_err;
+			}
+
 #ifdef FTRANS_USE_SEM
 				sem_post(&sem_forks);
 #endif
@@ -349,6 +356,7 @@ int main(int argc, char** argv) {
 			}
 
 fork_err:
+
 #ifdef FTRANS_USE_SEM
 			sem_post(&sem_forks);
 #endif
@@ -363,9 +371,11 @@ fork_err:
 
 done:
 	close(sockfd);
+
 #ifdef FTRANS_USE_MUTEX
 	pthread_mutex_destroy(&listener_mutex);
 #endif
+
 #ifdef FTRANS_USE_SEM
 	sem_destroy(&sem_forks);
 #endif

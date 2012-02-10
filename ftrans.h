@@ -6,7 +6,7 @@
 #define FTRANS_RECV_BUF_SIZE 512
 
 #define FTRANS_UPLOAD_PATH "./uploads"
-#define FTRANS_UPLOAD_MOD (0770)
+#define FTRANS_UPLOAD_MOD (0660)
 
 #define FTRANS_TCP_LISTENBACKLOG 5
 
@@ -19,7 +19,7 @@
 	#define FTRANS_USE_MUTEX
 #endif
 
-// header trans before file content
+// header sent before file content
 // which contents:
 // size: 32 bytes
 // name: 256 bytes
@@ -27,5 +27,11 @@
 #define FTRANS_TRANS_HEADER_SIZE 512
 #define FTRANS_TRANS_HEADER_FILESIZE 32
 #define FTRANS_TRANS_HEADER_FILENAME 256
+
+#ifdef WIN32
+	#define FTRANS_PATH_SEPARATER "\\"
+#else
+	#define FTRANS_PATH_SEPARATER "/"
+#endif
 
 #endif //_FTRANS_H
