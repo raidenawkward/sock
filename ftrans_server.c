@@ -102,11 +102,83 @@ err:
 	return -1;
 }
 
-int get_received_file_name(int index, char* name) {
+size_t get_file_size_from_header(char* header) {
+	size_t ret = -1;
+	if (!header)
+		return ret;
+
+	int sign = 1;
+	int num_start = 0;
+
+	if (header[0] == '-') {
+		sign = -1;
+		++num_start;
+	}
+
+	char buf[FTRANS_TRANS_HEADER_FILESIZE];
+	memset(buf, '\0', sizeof(buf));
+	memcpy(buf, header + num_start, sign > 0? FTRANS_TRANS_HEADER_FILESIZE : FTRANS_TRANS_HEADER_FILESIZE - 1);
+
+	ret = atoi(buf);
+
+	return sign * ret;
+}
+
+int get_received_file_name(int index, char* name, char* header) {
 	if (index < 0 || !name)
 		return -1;
 
+	if (!header)
+		goto default_name;
+
+	memcpy(name, header + FTRANS_TRANS_HEADER_FILESIZE, sizeof(name));
+	return strlen(name);
+
+default_name:
 	return sprintf(name,"%d",index);
+}
+
+size_t receive_header_from_client_socket(int socketClient, void* header) {
+	if (!header || socketClient <0) {
+		return -1;
+	}
+
+	memset(header, 0x00, sizeof(header));
+	size_t header_current_size = 0;
+
+	char buf[FTRANS_RECV_BUF_SIZE];
+	size_t sz_read = 0;
+	size_t sz_total_read = 0;
+
+	while(1) {
+		sz_read = read(socketClient, buf, sizeof(buf));
+		if (!sz_read) {
+			break;
+		} else if (sz_read < 0) {
+			perror("error when reading headder data");
+			return -1;
+		}
+
+		sz_total_read += sz_read;
+
+		if (header_current_size < FTRANS_TRANS_HEADER_SIZE) {
+			size_t header_left_size = FTRANS_TRANS_HEADER_SIZE - header_current_size;
+			if (header_left_size < sz_read) {
+				memcpy((header + header_current_size), buf, header_left_size);
+				sz_read -= header_left_size;
+				header_current_size = FTRANS_TRANS_HEADER_SIZE;
+			} else {
+				memcpy((header + header_current_size), buf, sz_read);
+				header_current_size += sz_read;
+				continue;
+			}
+		} else {
+			break;
+		}
+	}
+
+	printf("header gotten: %s\n", (char*)header);
+	return sz_total_read;
 }
 
 int receive_file_from_client_socket(int socketClient, const char* pathToSave) {
@@ -236,17 +308,6 @@ int main(int argc, char** argv) {
 
 		printf("* quest received from %s\n",inet_ntoa(addr_client.sin_addr));
 
-		char name[256];
-		memset(name, 0x00, 256);
-		if (get_received_file_name(++total_files, name) < 0) {
-			continue;
-		}
-		char path[1024];
-		memset(path,0x00, 1024);
-		strcat(path, path_to_save);
-		strcat(path, "/");
-		strcat(path, name);
-
 #ifdef FTRANS_USE_SEM
 		sem_wait(&sem_forks);
 
@@ -256,21 +317,6 @@ int main(int argc, char** argv) {
 			sem_post(&sem_forks);
 			continue;
 		} else if (pid == 0) {
-			size_t sz = receive_file_from_client_socket(sockfd_client, path);
-
-			close(sockfd_client);
-			sem_post(&sem_forks);
-
-			if (sz >= 0) {
-				printf("%d bytes data saved\n", sz);
-				exit(0);
-			} else {
-				printf("some error detacted while file ftrans\n");
-				exit(-1);
-			}
-		} else {
-
-		}
 #endif
 
 #ifdef FTRANS_USE_MUTEX
@@ -287,8 +333,31 @@ int main(int argc, char** argv) {
 			perror("failed to fork");
 			FORKS[new_pid_index] = -1;
 		} else if (FORKS[new_pid_index] == 0) {
+#endif
+
+			// first recv the header
+			//
+			char header[FTRANS_TRANS_HEADER_SIZE];
+			size_t sz = receive_header_from_client_socket(sockfd_client, header);
+			if (sz <= 0) {
+				printf("failed to recv header from client\n");
+				exit(-1);
+			}
+			char name[FTRANS_TRANS_HEADER_FILENAME];
+			memset(name, 0x00, sizeof(name));
+			if (get_received_file_name(++total_files, name, header) < 0) {
+				printf("failed to recv header from client\n");
+				exit(-1);
+			}
+			char path[1024];
+			memset(path,0x00, 1024);
+			strcat(path, path_to_save);
+			strcat(path, "/");
+			strcat(path, name);
+
+			// second recv file
 			printf("saving file to %s\n",path);
-			size_t sz = receive_file_from_client_socket(sockfd_client, path);
+			sz = receive_file_from_client_socket(sockfd_client, path);
 
 			close(sockfd_client);
 
@@ -300,9 +369,10 @@ int main(int argc, char** argv) {
 				exit(-1);
 			}
 		} else {
+#ifdef FTRANS_USE_MUTEX
 			++CURRENT_FORKS;
-		}
 #endif
+		}
 	} //while(1)
 
 done:
