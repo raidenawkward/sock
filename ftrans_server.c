@@ -193,16 +193,16 @@ int main(int argc, char** argv) {
 
 		int new_pid_index = get_next_fork_index();
 		FORKS[new_pid_index] = fork();
-		++CURRENT_FORKS;
 
 		if (FORKS[new_pid_index] < 0) {
 			perror("failed to fork");
 			FORKS[new_pid_index] = -1;
-			--CURRENT_FORKS;
-		} else {
+		} else if (FORKS[new_pid_index] == 0) {
 			printf("saving file to %s\n",path);
 			receive_file_from_client_socket(sockfd_client, path);
 			close(sockfd_client);
+		} else {
+			++CURRENT_FORKS;
 		}
 	}
 
