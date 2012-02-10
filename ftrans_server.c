@@ -83,11 +83,11 @@ err:
 	return -1;
 }
 
-int get_received_file_name(int socketClient, char* name) {
-	if (socketClient < 0 || !name)
+int get_received_file_name(int index, char* name) {
+	if (index < 0 || !name)
 		return -1;
 
-	return sprintf(name,"%d",socketClient);
+	return sprintf(name,"%d",index);
 }
 
 int receive_file_from_client_socket(int socketClient, const char* pathToSave) {
@@ -186,6 +186,8 @@ int main(int argc, char** argv) {
 	printf("local ip: %s\n",inet_ntoa(addr_server.sin_addr));
 	printf("server sockfd: %d\n", sockfd);
 
+	int total_files = 0;
+
 	while (1) {
 		socklen_t socklen_client = 0;
 		struct sockaddr_in addr_client;
@@ -200,7 +202,7 @@ int main(int argc, char** argv) {
 
 		char name[256];
 		memset(name, 0x00, 256);
-		if (get_received_file_name(sockfd_client, name) < 0) {
+		if (get_received_file_name(++total_files, name) < 0) {
 			continue;
 		}
 		char path[1024];
