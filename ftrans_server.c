@@ -98,28 +98,37 @@ int receive_file_from_client_socket(int socketClient, const char* pathToSave) {
 		return -1;
 
 	char buf[FTRANS_RECV_BUF_SIZE];
+	memset(buf, 0x00, sizeof(buf));
 	size_t sz_read = 0;
 	size_t sz_total_read = 0;
-	while(sz_read = recv(socketClient, buf, FTRANS_RECV_BUF_SIZE, 0)) {
+
+	while(sz_read = read(socketClient, buf, sizeof(buf)) > 0) {
 		if (!sz_read)
 			break;
 		sz_total_read += sz_read;
 
 		if (fwrite(buf, sz_read, 1, fp) != sz_read) {
+			printf("error when write data to file\n");
 			goto err;
 		}
+
+		memset(buf, 0x00, FTRANS_RECV_BUF_SIZE);
 	}
 
+	if (sz_read < 0) {
+		perror("error when reading");
+		goto err;
+	}
+
+	printf("data(%d): %s\n",sz_read,buf);
+
 	fclose(fp);
-	close(socketClient);
 
 	return sz_total_read;
 
 err:
 	if (fp)
 		fclose(fp);
-	if (socketClient > 0)
-		close(socketClient);
 	return -1;
 }
 
@@ -143,6 +152,8 @@ int main(int argc, char** argv) {
 		goto err;
 	}
 
+	printf("server launching..");
+
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd < 0) {
 		perror("failed to create socket descripter");
@@ -165,10 +176,15 @@ int main(int argc, char** argv) {
 	}
 
 	pthread_t thread_listener;
+
 	if (pthread_create(&thread_listener, NULL, forks_listener, NULL) != 0) {
 		perror("failed to create listener thread");
 		goto err;
 	}
+
+	printf(" done\n");
+	printf("local ip: %s\n",inet_ntoa(addr_server.sin_addr));
+	printf("server sockfd: %d\n", sockfd);
 
 	while (1) {
 		socklen_t socklen_client = 0;
@@ -179,6 +195,8 @@ int main(int argc, char** argv) {
 			perror("error client connection detacted");
 			continue;
 		}
+
+		printf("* quest received from %s\n",inet_ntoa(addr_client.sin_addr));
 
 		char name[256];
 		memset(name, 0x00, 256);
@@ -192,6 +210,12 @@ int main(int argc, char** argv) {
 		strcat(path, name);
 
 		int new_pid_index = get_next_fork_index();
+		if (new_pid_index < 0) {
+			// list is full
+			close(sockfd_client);
+			continue;
+		}
+
 		FORKS[new_pid_index] = fork();
 
 		if (FORKS[new_pid_index] < 0) {
@@ -199,7 +223,8 @@ int main(int argc, char** argv) {
 			FORKS[new_pid_index] = -1;
 		} else if (FORKS[new_pid_index] == 0) {
 			printf("saving file to %s\n",path);
-			receive_file_from_client_socket(sockfd_client, path);
+			size_t sz = receive_file_from_client_socket(sockfd_client, path);
+			printf("%d data saved\n", sz);
 			close(sockfd_client);
 		} else {
 			++CURRENT_FORKS;
@@ -207,6 +232,7 @@ int main(int argc, char** argv) {
 	}
 
 done:
+	close(sockfd);
 	return 0;
 err:
 	if (sockfd > 0)
