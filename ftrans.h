@@ -10,4 +10,6 @@
 
 #define FTRANS_TCP_LISTENBACKLOG 5
 
+#define FTRANS_MAX_FORKS 10
+
 #endif //_FTRANS_H

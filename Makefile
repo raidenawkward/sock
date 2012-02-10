@@ -1,5 +1,5 @@
 
-CFLAGS += -g
+CFLAGS += -g -lpthread
 
 TGT_GLOBALIP := getglobalip
 OBJS_GLOBALIP := getglobalip.o
