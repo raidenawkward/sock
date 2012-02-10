@@ -11,15 +11,19 @@
 #include "ftrans.h"
 
 void show_help() {
-	printf("usage: client file targetip [target name]\n");
+	printf("usage: client file_path target_ip [target name]\n");
 }
 
 const char* get_file_name_from_path(const char* path) {
 	if (!path)
 		return NULL;
-	char* ret = strrchr(path, '/'); 
+
+	char* ret = strrchr(path, (FTRANS_PATH_SEPARATER)[0]);
+
 	if (!ret)
 		return path;
+
+	return ret + 1;
 }
 
 size_t get_file_size(const char* path) {
@@ -153,7 +157,7 @@ int main(int argc, char** argv) {
 		memset(buf, 0x00, sizeof(buf));
 	}
 
-	printf("%d data sent\n", total_size);
+	printf("%d byte data sent\n", total_size);
 done:
 	close(fp);
 	close(sockfd);
