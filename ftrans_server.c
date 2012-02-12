@@ -258,7 +258,7 @@ int start_ftrans_server(const char* targetDir, const char* netInterface, int wil
 	}
 #endif
 
-	printf(" done\n");
+	printf("done\n");
 	printf("local ip: %s\n",inet_ntoa(addr_server.sin_addr));
 	printf("server sockfd: %d\n", sockfd);
 

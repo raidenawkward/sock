@@ -10,7 +10,7 @@
 
 #include "ftrans.h"
 
-void show_help() {
+void show_assistance() {
 	printf("usage: client file_path target_ip [target name]\n");
 }
 
@@ -76,7 +76,7 @@ char* itoa(int i) {
 
 int main(int argc, char** argv) {
 	if (argc < 3) {
-		show_help();
+		show_assistance();
 		return 0;
 	}
 
@@ -147,7 +147,7 @@ int main(int argc, char** argv) {
 			perror("error when reading data from file");
 			goto err;
 		}
-
+ 
 		if (send(sockfd, buf, read_size, 0) != read_size) {
 			perror("error detacted when uploading file");
 			goto err;
@@ -155,8 +155,11 @@ int main(int argc, char** argv) {
 
 		total_size += read_size;
 		memset(buf, 0x00, sizeof(buf));
+
+		printf("\rsending..\t%d/%d\n", total_size, file_size);
 	}
 
+	printf("\rsending..\tdone\n");
 	printf("%d byte data sent\n", total_size);
 done:
 	close(fp);
