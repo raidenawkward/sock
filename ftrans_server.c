@@ -74,7 +74,7 @@ void* forks_listener(void* arg) {
 }
 #endif //FTRANS_USE_MUTEX
 
-int get_local_sin_addr(struct in_addr *sinaddr) {
+int get_local_sin_addr(const char* netInter, struct in_addr *sinaddr) {
 	int sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock < 0)
 		goto err;
@@ -82,7 +82,7 @@ int get_local_sin_addr(struct in_addr *sinaddr) {
 	struct sockaddr_in addr;
 
 	struct ifreq ifr;
-	strncpy(ifr.ifr_name, ETH_NAME, IFNAMSIZ);
+	strncpy(ifr.ifr_name, netInter? netInter : ETH_NAME, IFNAMSIZ);
 	ifr.ifr_name[IFNAMSIZ - 1] = 0;
 
 	if (ioctl(sock, SIOCGIFADDR, &ifr) < 0) {
@@ -201,28 +201,21 @@ err:
 	return -1;
 }
 
-int main(int argc, char** argv) {
+//int start_ftrans_server(int argc, char** argv) {
+int start_ftrans_server(const char* targetDir, const char* netInterface, int willShowMessage) {
 	char path_to_save[1024];
 	memset(path_to_save, 0x00, 1024);
 
-	if (argc < 2) {
-		mkdir(FTRANS_UPLOAD_PATH, FTRANS_UPLOAD_MOD);
-		strcpy(path_to_save, FTRANS_UPLOAD_PATH);
-	} else {
-		mkdir(argv[1], FTRANS_UPLOAD_MOD);
-		strcpy(path_to_save, argv[1]);
-	}
+	mkdir(targetDir, FTRANS_UPLOAD_MOD);
+	strcpy(path_to_save, targetDir);
 
 	struct sockaddr_in addr_server;
 	addr_server.sin_family = AF_INET;
 	addr_server.sin_port = htons(FTRANS_PORT);
-	if (get_local_sin_addr(&addr_server.sin_addr) < 0) {
+	if (get_local_sin_addr(netInterface, &addr_server.sin_addr) < 0) {
 		printf("error when getting local inet info\n");
 		goto err;
 	}
-
-	printf("server launching..");
-
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd < 0) {
 		perror("failed to create socket descripter");
@@ -281,7 +274,8 @@ int main(int argc, char** argv) {
 			continue;
 		}
 
-		printf("\n* quest received from %s\n",inet_ntoa(addr_client.sin_addr));
+		if (willShowMessage)
+			printf("\n* quest received from %s\n",inet_ntoa(addr_client.sin_addr));
 
 #ifdef FTRANS_USE_SEM
 		sem_wait(&sem_forks);
@@ -315,14 +309,16 @@ int main(int argc, char** argv) {
 			char header[FTRANS_TRANS_HEADER_SIZE];
 			size_t sz = receive_header_from_client_socket(sockfd_client, header, sizeof(header));
 			if (sz <= 0) {
-				printf("failed to recv header from client\n");
+				if (willShowMessage)
+					printf("failed to recv header from client\n");
 				goto fork_err;
 			}
 
 			char name[FTRANS_TRANS_HEADER_FILENAME];
 			memset(name, '\0', sizeof(name));
 			if (get_received_file_name(++total_files, name, header) < 0) {
-				printf("failed to get name from header\n");
+				if (willShowMessage)
+					printf("failed to get name from header\n");
 				goto fork_err;
 			}
 			char path[1024];
@@ -332,17 +328,20 @@ int main(int argc, char** argv) {
 			strcat(path, name);
 
 			// second recv file
+			if (willShowMessage)
 			printf("saving file to %s\n",path);
 			sz = receive_file_from_client_socket(sockfd_client, path);
 
 			close(sockfd_client);
 
 			if (sz >= 0) {
-				printf("%d bytes data saved\n", sz);
+				if (willShowMessage)
+					printf("%d bytes data saved\n", sz);
 
 			size_t header_size = get_file_size_from_header(header);
 			if (sz != header_size) {
-				printf("some errors may happen when recving file\n");
+				if (willShowMessage)
+					printf("some errors may happen when recving file\n");
 				goto fork_err;
 			}
 
@@ -351,7 +350,8 @@ int main(int argc, char** argv) {
 #endif
 				exit(0);
 			} else {
-				printf("some error detacted while file ftrans\n");
+				if (willShowMessage)
+					printf("some error detacted while file ftrans\n");
 				goto fork_err;
 			}
 
@@ -394,4 +394,62 @@ err:
 #endif
 
 	return -1;
+}
+
+void show_assistance() {
+	printf("ftrans server\t-\tfile transferer server\n");
+	printf("usage: ftrans_server [-idh] [options]\n");
+	printf("\n");
+	printf("-i interface\t-\tspecify net interface server will use\n");
+	printf("-d dir\t-\tset upload dir\n");
+	printf("-m\t-\tmessage will be printed in shell while interacting with client\n");
+	printf("-v\t-\tshow version infomation\n");
+	printf("-h\t-\tshow this message\n");
+}
+
+void show_version() {
+	printf("version:\t%s\n", FTRANS_SERVER_VERSION);
+}
+
+int main(int argc, char** argv) {
+
+	char net_interface[512];
+	memset(net_interface, '\0', sizeof(net_interface));
+	strcpy(net_interface, FTRANS_NET_INTERFACE);
+
+	char upload_dir[1024];
+	memset(upload_dir, '\0', sizeof(upload_dir));
+	strcpy(upload_dir, FTRANS_UPLOAD_PATH);
+
+	int will_message_printed = 0;
+	int oc;
+	while(oc = getopt(argc, argv, "hvi:d:")) {
+		if (oc < 0)
+			break;
+		switch(oc) {
+		case 'i':
+			memset(net_interface, '\0', sizeof(net_interface));
+			strcpy(net_interface, optarg);
+			break;
+		case 'd':
+			memset(upload_dir, '\0', sizeof(upload_dir));
+			strcpy(upload_dir, optarg);
+			break;
+		case 'm':
+			will_message_printed = 1;
+			break;
+		case 'v':
+			show_version();
+			return 0;
+			break;
+		case 'h':
+		default:
+			show_assistance();
+			return 0;
+			break;
+		}
+	}
+
+	printf("server launching..\n");
+	return start_ftrans_server(upload_dir, net_interface, will_message_printed);
 }
