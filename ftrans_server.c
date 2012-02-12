@@ -201,7 +201,6 @@ err:
 	return -1;
 }
 
-//int start_ftrans_server(int argc, char** argv) {
 int start_ftrans_server(const char* targetDir, const char* netInterface, int willShowMessage) {
 	char path_to_save[1024];
 	memset(path_to_save, 0x00, 1024);
@@ -216,6 +215,7 @@ int start_ftrans_server(const char* targetDir, const char* netInterface, int wil
 		printf("error when getting local inet info\n");
 		goto err;
 	}
+
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd < 0) {
 		perror("failed to create socket descripter");
