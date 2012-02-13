@@ -423,7 +423,7 @@ int main(int argc, char** argv) {
 
 	int will_message_printed = 0;
 	int oc;
-	while(oc = getopt(argc, argv, "hvi:d:")) {
+	while(oc = getopt(argc, argv, "mhvi:d:")) {
 		if (oc < 0)
 			break;
 		switch(oc) {

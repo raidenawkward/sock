@@ -156,10 +156,11 @@ int main(int argc, char** argv) {
 		total_size += read_size;
 		memset(buf, 0x00, sizeof(buf));
 
-		printf("\rsending..\t%d/%d\n", total_size, file_size);
+		printf("\rsending..\t%d/%d", total_size, file_size);
+		fflush(stdout);
 	}
 
-	printf("\rsending..\tdone\n");
+	printf("\ndone\n");
 	printf("%d byte data sent\n", total_size);
 done:
 	close(fp);
